@@ -2,51 +2,73 @@ import './App.css';
 import TodoList from './components/TodoList';
 import Textfield from '@atlaskit/textfield';
 import Button from '@atlaskit/button';
-import { useCallback, useEffect, useState, useRef } from 'react';
-import { v4 } from 'uuid';
-
-const TODO_APP_STORAGE_KEY = "TODO_APP";
+import { useCallback, useEffect, useState } from 'react';
+import { todoApi } from './services/api';
 
 function App() {
   const [todoList, setTodoList] = useState([]);
   const [textInput, setTextInput] = useState('');
-  const isFirstLoad = useRef(true);
 
   useEffect(() => {
-    if (isFirstLoad.current) {
-      const storedTodoList = localStorage.getItem(TODO_APP_STORAGE_KEY);
-      if (storedTodoList) {
-        setTodoList(JSON.parse(storedTodoList));
+    const fetchTodos = async () => {
+      try {
+        const todos = await todoApi.getAll();
+        setTodoList(todos.slice().reverse());
+      } catch (error) {
+        console.error('Error fetching todos:', error);
       }
-      isFirstLoad.current = false;
-    }
-  }, []);
+    };
 
-  useEffect(() => {
-    if (!isFirstLoad.current) {
-      localStorage.setItem(TODO_APP_STORAGE_KEY, JSON.stringify(todoList));
-    }
-  }, [todoList]);
+    fetchTodos(); // Lấy lần đầu
+
+    const interval = setInterval(fetchTodos, 200);
+
+    return () => clearInterval(interval); // Clear khi unmount
+  }, []);
 
   const onTextInputChange = useCallback((e) => {
     setTextInput(e.target.value);
   }, []);
 
-  const onAddBtnClick = useCallback((e) => {
-    setTodoList(prevTodoList => [
-      { id: v4(), name: textInput, isCompleted: false },
-      ...prevTodoList,
-    ]);
-
-    setTextInput('');
+  const onAddBtnClick = useCallback(async () => {
+    try {
+      const newTodo = await todoApi.create(textInput);
+      setTodoList(prevTodoList => [newTodo, ...prevTodoList]);
+      setTextInput('');
+    } catch (error) {
+      console.error('Error creating todo:', error);
+    }
   }, [textInput]);
 
-  const onCheckBtnClick = useCallback((id) => {
-    setTodoList(prevState => 
-      prevState.map(todo => 
-        todo.id === id ? { ...todo, isCompleted: true } : todo
-      )
-    );
+  const onCheckBtnClick = useCallback(async (id) => {
+    try {
+      const updatedTodo = await todoApi.update(id);
+      setTodoList(prevState => 
+        prevState.map(todo => 
+          todo.id === id ? updatedTodo : todo
+        )
+      );
+    } catch (error) {
+      console.error('Error updating todo:', error);
+    }
+  }, []);
+
+  const onDeleteBtnClick = useCallback(async (id) => {
+    try {
+      await todoApi.delete(id);
+      setTodoList(prevState => prevState.filter(todo => todo.id !== id));
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    }
+  }, []);
+
+  const onEditBtnClick = useCallback(async (id, newName) => {
+    try {
+      const updatedTodo = await todoApi.edit(id, newName);
+      setTodoList(prev => prev.map(todo => todo.id === id ? updatedTodo : todo));
+    } catch (error) {
+      console.error('Error editing todo:', error);
+    }
   }, []);
 
   return (
@@ -64,8 +86,7 @@ function App() {
         value={textInput}
         onChange={onTextInputChange}
       ></Textfield>
-      <TodoList todoList={todoList} onCheckBtnClick={onCheckBtnClick} />
-      
+      <TodoList todoList={todoList} onCheckBtnClick={onCheckBtnClick} onDeleteBtnClick={onDeleteBtnClick} onEditBtnClick={onEditBtnClick} />
     </>
   );
 }
