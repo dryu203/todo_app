@@ -1,0 +1,14 @@
+{
+  "todos": [
+    {
+      "id": "1",
+      "name": "Làm bài tập",
+      "isCompleted": false
+    },
+    {
+      "id": "456a",
+      "name": "Học tiếng anh",
+      "isCompleted": false
+    }
+  ]
+}
